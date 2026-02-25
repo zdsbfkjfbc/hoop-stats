@@ -78,21 +78,42 @@ export type Database = {
       }
       treinos: {
         Row: {
+          aproveitamento_geral: number | null
+          consistencia: number | null
           criado_em: string
           data: string
+          efg: number | null
           id: string
+          pontuacao_total: number
+          tendencia: string | null
+          total_acertos: number
+          total_tentativas: number
           user_id: string
         }
         Insert: {
+          aproveitamento_geral?: number | null
+          consistencia?: number | null
           criado_em?: string
           data?: string
+          efg?: number | null
           id?: string
+          pontuacao_total?: number
+          tendencia?: string | null
+          total_acertos?: number
+          total_tentativas?: number
           user_id: string
         }
         Update: {
+          aproveitamento_geral?: number | null
+          consistencia?: number | null
           criado_em?: string
           data?: string
+          efg?: number | null
           id?: string
+          pontuacao_total?: number
+          tendencia?: string | null
+          total_acertos?: number
+          total_tentativas?: number
           user_id?: string
         }
         Relationships: []
