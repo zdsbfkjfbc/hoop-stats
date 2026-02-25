@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Target, TrendingUp, Activity, LogOut, Plus } from "lucide-react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, Cell,
+} from "recharts";
+import { Target, TrendingUp, TrendingDown, Minus, Activity, LogOut, Plus, Zap, BarChart3, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -20,12 +23,22 @@ interface EvolutionPoint {
   FT: number | null;
 }
 
+interface TreinoMetrics {
+  pontuacao_total: number;
+  efg: number | null;
+  consistencia: number | null;
+  tendencia: string | null;
+  aproveitamento_geral: number | null;
+}
+
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<ShotStats[]>([]);
   const [evolution, setEvolution] = useState<EvolutionPoint[]>([]);
   const [nome, setNome] = useState("");
+  const [latestMetrics, setLatestMetrics] = useState<TreinoMetrics | null>(null);
+  const [barData, setBarData] = useState<{ tipo: string; percentual: number; fill: string }[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -33,7 +46,6 @@ const Dashboard = () => {
   }, [user]);
 
   const fetchData = async () => {
-    // Fetch profile
     const { data: profile } = await supabase
       .from("profiles")
       .select("nome")
@@ -41,18 +53,30 @@ const Dashboard = () => {
       .single();
     if (profile) setNome(profile.nome);
 
-    // Fetch all treinos with series
+    // Fetch treinos with consolidated metrics
     const { data: treinos } = await supabase
       .from("treinos")
-      .select("id, data")
+      .select("id, data, pontuacao_total, efg, consistencia, tendencia, aproveitamento_geral")
       .eq("user_id", user!.id)
       .order("data", { ascending: true });
 
     if (!treinos || treinos.length === 0) {
       setStats([]);
       setEvolution([]);
+      setLatestMetrics(null);
+      setBarData([]);
       return;
     }
+
+    // Latest treino metrics
+    const latest = treinos[treinos.length - 1];
+    setLatestMetrics({
+      pontuacao_total: latest.pontuacao_total,
+      efg: latest.efg,
+      consistencia: latest.consistencia,
+      tendencia: latest.tendencia,
+      aproveitamento_geral: latest.aproveitamento_geral,
+    });
 
     const treinoIds = treinos.map((t) => t.id);
     const { data: allSeries } = await supabase
@@ -76,6 +100,19 @@ const Dashboard = () => {
       percentual: v.tentativas > 0 ? Math.round((v.acertos / v.tentativas) * 10000) / 100 : 0,
     }));
     setStats(shotStats);
+
+    // Bar chart data
+    const colorMap: Record<string, string> = {
+      "2PT": "hsl(var(--chart-2pt))",
+      "3PT": "hsl(var(--chart-3pt))",
+      FT: "hsl(var(--chart-ft))",
+    };
+    setBarData(
+      ["2PT", "3PT", "FT"].map((tipo) => {
+        const s = shotStats.find((x) => x.tipo === tipo);
+        return { tipo, percentual: s?.percentual ?? 0, fill: colorMap[tipo] };
+      })
+    );
 
     // Evolution by date
     const byDate: Record<string, Record<string, { t: number; a: number }>> = {};
@@ -105,6 +142,18 @@ const Dashboard = () => {
     FT: { label: "Lance Livre", colorVar: "hsl(var(--chart-ft))", icon: Activity },
   };
 
+  const TendenciaIcon = ({ tendencia }: { tendencia: string | null }) => {
+    if (tendencia === "positiva") return <TrendingUp className="h-5 w-5 text-success" />;
+    if (tendencia === "negativa") return <TrendingDown className="h-5 w-5 text-destructive" />;
+    return <Minus className="h-5 w-5 text-muted-foreground" />;
+  };
+
+  const tendenciaLabel = (t: string | null) => {
+    if (t === "positiva") return "Positiva ↑";
+    if (t === "negativa") return "Negativa ↓";
+    return "Neutra";
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
@@ -117,6 +166,9 @@ const Dashboard = () => {
             <span className="text-sm text-muted-foreground hidden sm:inline">
               Olá, {nome || "Jogador"}
             </span>
+            <Button size="sm" variant="outline" onClick={() => navigate("/historico")} className="gap-2">
+              <History className="h-4 w-4" /> Histórico
+            </Button>
             <Button size="sm" onClick={() => navigate("/treino")} className="gap-2">
               <Plus className="h-4 w-4" /> Novo Treino
             </Button>
@@ -128,6 +180,41 @@ const Dashboard = () => {
       </header>
 
       <main className="container py-8 space-y-8">
+        {/* Consolidated Metrics from latest treino */}
+        {latestMetrics && (
+          <section className="animate-fade-in">
+            <h2 className="text-lg font-semibold mb-4 text-foreground">Último Treino</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="glass-card p-5 text-center">
+                <Zap className="h-5 w-5 mx-auto mb-2 text-primary" />
+                <p className="text-2xl font-bold font-mono text-primary">{latestMetrics.pontuacao_total}</p>
+                <p className="text-xs text-muted-foreground mt-1">Pontuação Total</p>
+              </div>
+              <div className="glass-card p-5 text-center">
+                <BarChart3 className="h-5 w-5 mx-auto mb-2 text-chart-3pt" />
+                <p className="text-2xl font-bold font-mono text-chart-3pt">
+                  {latestMetrics.efg != null ? `${(Number(latestMetrics.efg) * 100).toFixed(1)}%` : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">eFG%</p>
+              </div>
+              <div className="glass-card p-5 text-center">
+                <Activity className="h-5 w-5 mx-auto mb-2 text-chart-ft" />
+                <p className="text-2xl font-bold font-mono text-chart-ft">
+                  {latestMetrics.consistencia != null ? `${Number(latestMetrics.consistencia).toFixed(1)}` : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Consistência</p>
+              </div>
+              <div className="glass-card p-5 text-center">
+                <TendenciaIcon tendencia={latestMetrics.tendencia} />
+                <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                  {tendenciaLabel(latestMetrics.tendencia)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Tendência</p>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Stats Cards */}
         <section>
           <h2 className="text-lg font-semibold mb-4 text-foreground">Aproveitamento por Tipo</h2>
@@ -158,6 +245,34 @@ const Dashboard = () => {
             })}
           </div>
         </section>
+
+        {/* Bar Chart - Comparativo */}
+        {barData.length > 0 && barData.some((d) => d.percentual > 0) && (
+          <section className="glass-card p-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+            <h2 className="text-lg font-semibold mb-6 text-foreground">Comparativo de Aproveitamento</h2>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={barData} barSize={48}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="tipo" stroke="hsl(var(--muted-foreground))" fontSize={13} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} domain={[0, 100]} unit="%" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                    color: "hsl(var(--foreground))",
+                  }}
+                  formatter={(value: number) => [`${value}%`, "Aproveitamento"]}
+                />
+                <Bar dataKey="percentual" radius={[6, 6, 0, 0]}>
+                  {barData.map((entry, index) => (
+                    <Cell key={index} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </section>
+        )}
 
         {/* Evolution Chart */}
         <section className="glass-card p-6 animate-fade-in" style={{ animationDelay: "0.2s" }}>
