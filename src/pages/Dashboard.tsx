@@ -110,8 +110,8 @@ const Dashboard = () => {
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container flex items-center justify-between py-4">
           <h1 className="text-xl font-bold">
-            <span className="text-gradient">MoveOn</span>
-            <span className="text-foreground">Analytics</span>
+            <span className="text-gradient">B-Ball</span>
+            <span className="text-foreground"> Analytics</span>
           </h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:inline">

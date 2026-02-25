@@ -48,8 +48,8 @@ const Auth = () => {
       <div className="w-full max-w-md space-y-8 animate-fade-in">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight">
-            <span className="text-gradient">MoveOn</span>
-            <span className="text-foreground">Analytics</span>
+            <span className="text-gradient">B-Ball</span>
+            <span className="text-foreground"> Analytics</span>
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Basketball Performance Analytics
